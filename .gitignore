@@ -1,0 +1,29 @@
+# Repositories working area
+/repos/*
+!/repos/.gitkeep
+
+# Storage and generated packages
+/storage/releases/*
+!/storage/releases/.gitkeep
+/storage/tmp/*
+!/storage/tmp/.gitkeep
+
+# Logs
+/logs/*
+!/logs/.gitkeep
+*.log
+
+# Dependencies
+/vendor/
+
+# Local Environment Configurations
+config/branches.local.json
+.env
+.env.local
+
+# OS / Editor temporary files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
