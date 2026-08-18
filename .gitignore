@@ -12,6 +12,7 @@
 /logs/*
 !/logs/.gitkeep
 *.log
+/DecisionLog/*
 
 # Dependencies
 /vendor/
@@ -27,3 +28,5 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.ai_rules.md
+WIP_STATE.md
