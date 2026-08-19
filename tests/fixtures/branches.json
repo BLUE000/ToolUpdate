@@ -1,0 +1,22 @@
+{
+  "tools": [
+    {
+      "id": "TrustChain",
+      "name": "TrustChain Authenticator",
+      "description": "C++アプリ向けビルド出自証明＆オンラインライセンス認証モジュール",
+      "repository": "https://github.com/BLUE000/TrustChain.git",
+      "branch": "master",
+      "exclude": [".git", "tests"],
+      "webhook_url": "https://discord.com/api/webhooks/dummy"
+    },
+    {
+      "id": "TwitchFollowerList",
+      "name": "Twitch Follower List",
+      "description": "Twitchフォロワー管理ツール",
+      "repository": "https://github.com/BLUE000/TwitchFollowerList.git",
+      "branch": "master",
+      "exclude": [".git"],
+      "webhook_url": ""
+    }
+  ]
+}

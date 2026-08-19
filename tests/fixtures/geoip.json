@@ -1,0 +1,10 @@
+{
+  "local": [
+    {"start": "127.0.0.0", "end": "127.255.255.255", "code": "LOCAL", "name": "Localhost"},
+    {"start": "192.168.0.0", "end": "192.168.255.255", "code": "LOCAL", "name": "Private Network"}
+  ],
+  "ranges": [
+    {"start": "123.45.0.0", "end": "123.45.255.255", "code": "JP", "name": "Japan"},
+    {"start": "8.8.8.0", "end": "8.8.8.255", "code": "US", "name": "United States"}
+  ]
+}

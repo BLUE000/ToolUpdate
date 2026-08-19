@@ -1,0 +1,45 @@
+/* Country Statistics Styles */
+.country-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.country-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.country-stat-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.country-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.country-val {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+
+.progress-track {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent) 0%, #818cf8 100%);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}

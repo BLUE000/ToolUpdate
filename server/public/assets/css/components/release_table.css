@@ -1,0 +1,328 @@
+/* Release Detail & Table Styles */
+.tool-detail-page {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.detail-hero-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.back-link {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.detail-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.detail-desc {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    max-width: 600px;
+    margin-bottom: 16px;
+}
+
+.meta-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.meta-tag strong {
+    color: var(--text-primary);
+}
+
+.hero-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-sync, .btn-rss {
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-sync {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-sync:hover {
+    background: var(--accent-hover);
+    color: white;
+}
+
+.btn-rss {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-rss:hover {
+    background: var(--border-hover);
+}
+
+.releases-history-section h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.releases-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.release-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+}
+
+.release-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.version-badge-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.badge-version-large {
+    background: var(--accent);
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+}
+
+.release-date-text {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.version-downloads {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.release-notes-box {
+    margin-bottom: 20px;
+}
+
+.release-notes-box h4 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.notes-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.package-download-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.pkg-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pkg-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pkg-type {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.pkg-size {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+}
+
+.pkg-hash {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-download {
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-full {
+    background: var(--success);
+    color: white;
+}
+
+.btn-full:hover {
+    background: #059669;
+    color: white;
+}
+
+.btn-update {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-update:hover {
+    background: var(--accent-hover);
+    color: white;
+}
+
+/* Recent & Timeline */
+.recent-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+.recent-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.tool-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.version-tag {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+}
+
+.date {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-left: auto;
+}
+
+.notes {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.timeline {
+    list-style: none;
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 8px;
+    width: 2px;
+    background: var(--border-color);
+}
+
+.timeline li {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.timeline-date {
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.timeline-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+}
+
+.timeline-content h4 {
+    margin-bottom: 6px;
+}
+
+.badge {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+}

@@ -1,0 +1,18 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # すでに public/ が付いている場合はそのまま
+    RewriteCond %{REQUEST_URI} ^/releasehub/public/ [NC,OR]
+    RewriteCond %{REQUEST_URI} ^/public/ [NC]
+    RewriteRule ^ - [L]
+
+    # それ以外のアクセスは内部的に public/ フォルダへ転送
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# セキュリティ対策: config, storage, src, templatesへの直接アクセスを遮断
+<IfModule mod_authz_core.c>
+    <FilesMatch "^(branches\.json|webhooks\.json|geoip\.json|download_logs.*\.jsonl|manifest\.json|\.lock)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
