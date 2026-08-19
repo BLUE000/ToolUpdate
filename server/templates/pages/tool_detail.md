@@ -9,6 +9,7 @@
             </div>
         </div>
         <div class="hero-actions">
+            {README_BUTTON}
             <a href="{BASE_URL}/feed.php?type=rss&tool={TOOL_ID}" class="btn-rss" target="_blank">📡 RSSフィード</a>
         </div>
     </div>
@@ -19,4 +20,6 @@
             {RELEASES_LIST}
         </div>
     </div>
+
+    {README_MODAL}
 </div>

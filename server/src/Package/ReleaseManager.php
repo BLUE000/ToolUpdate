@@ -111,10 +111,17 @@ class ReleaseManager
                 return ['status' => 'error', 'message' => 'No tag found in release', 'manifest' => $manifest];
             }
 
-            // 新規リリースかどうかの判定
+            // 多言語READMEの同期
+            $this->syncReadmes($toolConfig);
+
+            // 新リリースかどうかの判定
             $currentLatest = $manifest['latest_version'] ?? '';
             if ($manifest !== null && $currentLatest === $tagName) {
-                // 既に最新
+                // 既に最新の場合でも、もし既存のリリースノートが空で今回GitHub側で記載があれば更新
+                $latestBody = trim($latestRelease['body'] ?? '');
+                if ($latestBody !== '' && !empty($manifest['releases']) && $manifest['releases'][0]['release_notes'] === '*リリースノートは記載されていません。*') {
+                    $manifest['releases'][0]['release_notes'] = $latestBody;
+                }
                 $manifest['last_synced_at'] = date('c');
                 $this->saveManifest($toolId, $manifest);
                 return ['status' => 'up_to_date', 'manifest' => $manifest];
@@ -184,7 +191,7 @@ class ReleaseManager
                             'size' => $updateSize,
                             'sha256' => $updateSha,
                             'downloads' => 0,
-                            'deleted_files' => $diffResult['deleted_files']
+                            'deleted_files' => $diffResult['deleted_files'] ?? []
                         ];
                     }
 
@@ -195,7 +202,11 @@ class ReleaseManager
             }
 
             // 新リリースエントリの作成
-            $releaseNotes = $latestRelease['body'] ?? '';
+            $releaseNotes = trim($latestRelease['body'] ?? '');
+            if ($releaseNotes === '') {
+                $releaseNotes = '*リリースノートは記載されていません。*';
+            }
+
             $newReleaseEntry = [
                 'version' => $tagName,
                 'prev_version' => $currentLatest !== '' ? $currentLatest : null,
@@ -234,6 +245,109 @@ class ReleaseManager
         } finally {
             $this->releaseLock($lockHandle);
         }
+    }
+
+    public function syncReadmes(array $toolConfig): array
+    {
+        $toolId = $toolConfig['id'] ?? '';
+        $repoUrl = $toolConfig['repository'] ?? '';
+        $branch = $toolConfig['branch'] ?? 'master';
+        if ($toolId === '' || $repoUrl === '') {
+            return [];
+        }
+
+        $readmeDir = $this->storageDir . '/readmes/' . $toolId;
+        if (!is_dir($readmeDir)) {
+            @mkdir($readmeDir, 0755, true);
+        }
+
+        $files = $this->gitClient->getReadmeFiles($repoUrl, $branch);
+        if (empty($files)) {
+            return [];
+        }
+
+        $languages = [];
+        foreach ($files as $file) {
+            $code = $file['code'] ?? 'default';
+            $filename = $file['filename'] ?? 'README.md';
+            $content = $file['content'] ?? '';
+
+            file_put_contents($readmeDir . '/' . $filename, $content);
+            $languages[] = [
+                'code' => $code,
+                'name' => $file['name'] ?? $code,
+                'filename' => $filename
+            ];
+        }
+
+        $meta = [
+            'tool_id' => $toolId,
+            'last_synced_at' => date('c'),
+            'languages' => $languages
+        ];
+        file_put_contents($readmeDir . '/readmes.json', json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        return $languages;
+    }
+
+    public function getReadmes(string $toolId): array
+    {
+        $metaPath = $this->storageDir . '/readmes/' . $toolId . '/readmes.json';
+        if (!file_exists($metaPath)) {
+            return [];
+        }
+        $data = json_decode((string)file_get_contents($metaPath), true);
+        return is_array($data) && isset($data['languages']) && is_array($data['languages'])
+            ? $data['languages']
+            : [];
+    }
+
+    public function getReadme(string $toolId, string $lang = 'ja'): ?array
+    {
+        $languages = $this->getReadmes($toolId);
+        if (empty($languages)) {
+            return null;
+        }
+
+        // 言語のマッチング探索
+        $selected = null;
+        foreach ($languages as $l) {
+            if (isset($l['code']) && strtolower($l['code']) === strtolower($lang)) {
+                $selected = $l;
+                break;
+            }
+        }
+
+        // 指定言語がない場合: 日本語(ja) ➔ default ➔ en ➔ 最初の言語
+        if ($selected === null) {
+            foreach (['ja', 'default', 'en'] as $fallbackCode) {
+                foreach ($languages as $l) {
+                    if (isset($l['code']) && strtolower($l['code']) === $fallbackCode) {
+                        $selected = $l;
+                        break 2;
+                    }
+                }
+            }
+        }
+        if ($selected === null) {
+            $selected = $languages[0];
+        }
+
+        $filename = $selected['filename'] ?? 'README.md';
+        $filePath = $this->storageDir . '/readmes/' . $toolId . '/' . $filename;
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        $content = (string)file_get_contents($filePath);
+        return [
+            'tool_id' => $toolId,
+            'current_lang' => $selected['code'] ?? 'default',
+            'current_lang_name' => $selected['name'] ?? 'Default',
+            'filename' => $filename,
+            'available_languages' => $languages,
+            'content_markdown' => $content
+        ];
     }
 
     private function getManifestPath(string $toolId): string

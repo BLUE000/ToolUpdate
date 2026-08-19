@@ -42,4 +42,30 @@ function runReleaseManagerTests(): void
     // UT-07-02: TTLキャッシュ判定
     $syncCached = $manager->checkAndSync(['id' => 'TrustChain', 'repository' => 'https://github.com/BLUE000/TrustChain.git'], force: false);
     TestAssert::assertEquals('cached', $syncCached['status'], 'ReleaseManager: recent sync returns cached status');
+
+    // UT-07-04: 多言語READMEのキャッシュと取得
+    $readmeDir = $tempStorage . '/readmes/TrustChain';
+    @mkdir($readmeDir, 0755, true);
+    file_put_contents($readmeDir . '/README.ja.md', "# 日本語ドキュメント\nこれはテストです。");
+    file_put_contents($readmeDir . '/README.md', "# English Documentation\nThis is a test.");
+    $meta = [
+        'tool_id' => 'TrustChain',
+        'last_synced_at' => date('c'),
+        'languages' => [
+            ['code' => 'ja', 'name' => '🇯🇵 日本語', 'filename' => 'README.ja.md'],
+            ['code' => 'default', 'name' => '🌐 Default (README.md)', 'filename' => 'README.md']
+        ]
+    ];
+    file_put_contents($readmeDir . '/readmes.json', json_encode($meta));
+
+    $readmes = $manager->getReadmes('TrustChain');
+    TestAssert::assertEquals(2, count($readmes), 'ReleaseManager: getReadmes returns 2 languages');
+
+    $readmeJa = $manager->getReadme('TrustChain', 'ja');
+    TestAssert::assertNotNull($readmeJa, 'ReleaseManager: getReadme(ja) returns data');
+    TestAssert::assertStringContains('日本語ドキュメント', $readmeJa['content_markdown'] ?? '', 'ReleaseManager: Japanese content loaded');
+
+    $readmeEn = $manager->getReadme('TrustChain', 'default');
+    TestAssert::assertNotNull($readmeEn, 'ReleaseManager: getReadme(default) returns data');
+    TestAssert::assertStringContains('English Documentation', $readmeEn['content_markdown'] ?? '', 'ReleaseManager: English content loaded');
 }

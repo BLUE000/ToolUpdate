@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{BASE_URL}/assets/css/components/tool_card.css">
     <link rel="stylesheet" href="{BASE_URL}/assets/css/components/release_table.css">
     <link rel="stylesheet" href="{BASE_URL}/assets/css/components/country_stats.css">
+    <link rel="stylesheet" href="{BASE_URL}/assets/css/components/readme_modal.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">

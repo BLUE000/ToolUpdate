@@ -50,7 +50,7 @@ class App
     public function handleWeb(array $getParams): string
     {
         $page = $getParams['page'] ?? 'tools';
-        $toolId = $getParams['id'] ?? '';
+        $toolId = $getParams['id'] ?? ($getParams['tool'] ?? '');
         $action = $getParams['action'] ?? '';
 
         // 手動同期アクション
@@ -71,6 +71,7 @@ class App
             'tool' => $this->renderToolDetail($toolId),
             'recent' => $this->renderRecent($tools),
             'releases' => $this->renderReleases($tools),
+            'readme' => $this->renderReadmePage($toolId, $getParams['lang'] ?? 'ja'),
             default => $this->renderToolsList($tools),
         };
     }
@@ -79,6 +80,35 @@ class App
     {
         $action = $getParams['action'] ?? '';
         $toolId = $getParams['tool'] ?? '';
+
+        if ($action === 'readme') {
+            if ($toolId === '') {
+                return ['status' => 'error', 'message' => 'Missing tool parameter'];
+            }
+
+            $lang = $getParams['lang'] ?? 'ja';
+            $readmeData = $this->releaseManager->getReadme($toolId, $lang);
+            if ($readmeData === null) {
+                http_response_code(404);
+                return ['status' => 'error', 'message' => 'README not found for the specified tool/language'];
+            }
+
+            $toolConfig = $this->config->getTool($toolId);
+            $toolName = $toolConfig['name'] ?? $toolId;
+            $html = $this->renderer->markdownToHtml($readmeData['content_markdown']);
+
+            return [
+                'status' => 'success',
+                'tool_id' => $toolId,
+                'tool_name' => $toolName,
+                'current_lang' => $readmeData['current_lang'],
+                'current_lang_name' => $readmeData['current_lang_name'],
+                'filename' => $readmeData['filename'],
+                'available_languages' => $readmeData['available_languages'],
+                'content_markdown' => $readmeData['content_markdown'],
+                'content_html' => $html
+            ];
+        }
 
         if ($action === 'check') {
             if ($toolId === '') {
@@ -430,11 +460,19 @@ class App
                     $badgesHtml .= '<span class="badge-tag badge-popular">👑 人気No.1</span>';
                 }
 
+                // リリースノートのレンダリング & READMEリンク自動変換
+                $rawNotes = $rel['release_notes'] ?? '';
+                if (trim($rawNotes) === '') {
+                    $rawNotes = '*リリースノートは記載されていません。*';
+                }
+                $notesHtml = $this->renderer->markdownToHtml($rawNotes);
+                $notesHtml = $this->convertReadmeLinks($notesHtml, $toolId);
+
                 $releasesHtml .= $this->renderer->renderComponent('release_item', [
                     'VERSION' => htmlspecialchars($ver, ENT_QUOTES, 'UTF-8'),
                     'BADGES' => $badgesHtml,
                     'RELEASE_DATE' => htmlspecialchars(date('Y-m-d H:i', strtotime($rel['release_date'] ?? 'now')), ENT_QUOTES, 'UTF-8'),
-                    'RELEASE_NOTES' => $this->renderer->markdownToHtml($rel['release_notes'] ?? ''),
+                    'RELEASE_NOTES' => $notesHtml,
                     'VERSION_DOWNLOADS' => number_format($verDl),
                     'FULL_SIZE' => isset($fullPkg['size']) ? sprintf('%.1f MB', $fullPkg['size'] / 1048576) : '-',
                     'FULL_SHA256' => htmlspecialchars($fullPkg['sha256'] ?? '-', ENT_QUOTES, 'UTF-8'),
@@ -446,7 +484,37 @@ class App
                 ]);
             }
         } else {
-            $releasesHtml = '<p class="empty-text">現在利用可能なリリースパッケージはありません。「Gitから最新リリースを再取得」をお試しください。</p>';
+            $releasesHtml = '<p class="empty-text">現在利用可能なリリースパッケージはありません。</p>';
+        }
+
+        // 多言語READMEの存在確認 & モーダルコンポーネントの準備
+        $readmes = $this->releaseManager->getReadmes($toolId);
+        $hasReadme = !empty($readmes);
+        $readmeBtnHtml = '';
+        $modalHtml = '';
+
+        if ($hasReadme) {
+            $readmeBtnHtml = sprintf(
+                '<button type="button" class="btn-readme open-readme-btn" data-tool="%s" data-lang="ja">📖 ドキュメント・README</button>',
+                htmlspecialchars($toolId, ENT_QUOTES, 'UTF-8')
+            );
+
+            // 言語選択肢のオプション生成
+            $langOptionsHtml = '';
+            foreach ($readmes as $l) {
+                $langOptionsHtml .= sprintf(
+                    '<option value="%s">%s</option>',
+                    htmlspecialchars($l['code'], ENT_QUOTES, 'UTF-8'),
+                    htmlspecialchars($l['name'], ENT_QUOTES, 'UTF-8')
+                );
+            }
+
+            $modalHtml = $this->renderer->renderComponent('readme_modal', [
+                'TOOL_ID' => htmlspecialchars($toolId, ENT_QUOTES, 'UTF-8'),
+                'TOOL_NAME' => htmlspecialchars($tool['name'] ?? $toolId, ENT_QUOTES, 'UTF-8'),
+                'LANG_OPTIONS' => $langOptionsHtml,
+                'BASE_URL' => $this->baseUrl
+            ]);
         }
 
         return $this->renderer->render('pages/tool_detail.md', [
@@ -457,8 +525,74 @@ class App
             'TOOL_NAME' => htmlspecialchars($tool['name'] ?? $toolId, ENT_QUOTES, 'UTF-8'),
             'TOOL_DESC' => htmlspecialchars($tool['description'] ?? '', ENT_QUOTES, 'UTF-8'),
             'TOTAL_DOWNLOADS' => number_format($totalDl),
-            'RELEASES_LIST' => $releasesHtml
+            'RELEASES_LIST' => $releasesHtml,
+            'README_BUTTON' => $readmeBtnHtml,
+            'README_MODAL' => $modalHtml
         ]);
+    }
+
+    private function renderReadmePage(string $toolId, string $lang = 'ja'): string
+    {
+        $tool = $this->config->getTool($toolId);
+        if ($tool === null) {
+            return $this->renderer->render('pages/tools.md', [
+                'PAGE_TITLE' => 'ツールが見つかりません',
+                'BASE_URL' => $this->baseUrl,
+                'GLOBAL_NAV' => $this->renderer->renderComponent('nav', ['ACTIVE_PAGE' => 'tools', 'BASE_URL' => $this->baseUrl]),
+                'TOOL_CARDS' => '<p class="error-text">指定されたツールは登録されていません。</p>',
+                'RANKING_LIST' => '',
+                'COUNTRY_STATS' => ''
+            ]);
+        }
+
+        $readmeData = $this->releaseManager->getReadme($toolId, $lang);
+        $contentHtml = $readmeData !== null
+            ? $this->renderer->markdownToHtml($readmeData['content_markdown'])
+            : '<p class="empty-text">ドキュメント (README) はまだ登録されていません。</p>';
+
+        $readmes = $this->releaseManager->getReadmes($toolId);
+        $langLinksHtml = '';
+        foreach ($readmes as $l) {
+            $isCurrent = ($readmeData !== null && $readmeData['current_lang'] === $l['code']);
+            $activeClass = $isCurrent ? ' class="lang-tab active"' : ' class="lang-tab"';
+            $langLinksHtml .= sprintf(
+                '<a href="?page=readme&tool=%s&lang=%s"%s>%s</a>',
+                urlencode($toolId),
+                urlencode($l['code']),
+                $activeClass,
+                htmlspecialchars($l['name'], ENT_QUOTES, 'UTF-8')
+            );
+        }
+
+        return $this->renderer->render('pages/readme.md', [
+            'PAGE_TITLE' => htmlspecialchars($tool['name'] ?? $toolId, ENT_QUOTES, 'UTF-8') . ' - ドキュメント (README)',
+            'BASE_URL' => $this->baseUrl,
+            'GLOBAL_NAV' => $this->renderer->renderComponent('nav', ['ACTIVE_PAGE' => 'tools', 'BASE_URL' => $this->baseUrl]),
+            'TOOL_ID' => htmlspecialchars($toolId, ENT_QUOTES, 'UTF-8'),
+            'TOOL_NAME' => htmlspecialchars($tool['name'] ?? $toolId, ENT_QUOTES, 'UTF-8'),
+            'LANG_TABS' => $langLinksHtml,
+            'README_CONTENT' => $contentHtml
+        ]);
+    }
+
+    private function convertReadmeLinks(string $html, string $toolId): string
+    {
+        // 既に <a> タグ内のものは二重置換しない
+        return preg_replace_callback(
+            '/(?<!href=")(?<!">)(README(?:\.([a-zA-Z_\-]+))?\.md|README\b)/u',
+            function ($m) use ($toolId) {
+                $matched = $m[0];
+                $lang = !empty($m[2]) ? strtolower($m[2]) : 'ja';
+                return sprintf(
+                    '<a href="javascript:void(0)" class="open-readme-link" data-tool="%s" data-lang="%s" title="%s のドキュメントを開く">📖 %s</a>',
+                    htmlspecialchars($toolId, ENT_QUOTES, 'UTF-8'),
+                    htmlspecialchars($lang, ENT_QUOTES, 'UTF-8'),
+                    htmlspecialchars($matched, ENT_QUOTES, 'UTF-8'),
+                    htmlspecialchars($matched, ENT_QUOTES, 'UTF-8')
+                );
+            },
+            $html
+        );
     }
 
     private function renderRecent(array $tools): string

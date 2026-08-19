@@ -66,4 +66,22 @@ function runApiRoutesIntegrationTests(): void
     $apiResSyncOk = $app->handleApi(['action' => 'sync', 'token' => 'test-admin-secret-token']);
     TestAssert::assertTrue(in_array($apiResSyncOk['status'] ?? '', ['up_to_date', 'updated']), 'API IT-05: Sync returns up_to_date or updated');
     TestAssert::assertNotNull($apiResSyncOk['message'] ?? null, 'API IT-05: Message present');
+
+    // IT-20: 多言語README API (action=readme)
+    $readmeDir = $tempStorage . '/readmes/TrustChain';
+    @mkdir($readmeDir, 0755, true);
+    file_put_contents($readmeDir . '/README.ja.md', "# 日本語タイトル\nテスト説明文です。");
+    $meta = [
+        'tool_id' => 'TrustChain',
+        'last_synced_at' => date('c'),
+        'languages' => [
+            ['code' => 'ja', 'name' => '🇯🇵 日本語', 'filename' => 'README.ja.md']
+        ]
+    ];
+    file_put_contents($readmeDir . '/readmes.json', json_encode($meta));
+
+    $apiReadme = $app->handleApi(['action' => 'readme', 'tool' => 'TrustChain', 'lang' => 'ja']);
+    TestAssert::assertEquals('success', $apiReadme['status'] ?? '', 'API IT-20: README status is success');
+    TestAssert::assertStringContains('<h1>日本語タイトル</h1>', $apiReadme['content_html'] ?? '', 'API IT-20: README content_html rendered');
+    TestAssert::assertEquals('ja', $apiReadme['current_lang'] ?? '', 'API IT-20: current_lang is ja');
 }

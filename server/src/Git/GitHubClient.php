@@ -83,6 +83,101 @@ class GitHubClient
         return true;
     }
 
+    public function getReadmeFiles(string $repoUrl, string $branch = 'master'): array
+    {
+        $repoPath = $this->parseRepoPath($repoUrl);
+        if ($repoPath === null) {
+            return [];
+        }
+
+        $knownLanguages = [
+            'ja' => ['name' => '🇯🇵 日本語', 'filename' => 'README.ja.md'],
+            'en' => ['name' => '🇺🇸 English', 'filename' => 'README.en.md'],
+            'de' => ['name' => '🇩🇪 Deutsch', 'filename' => 'README.de.md'],
+            'fr' => ['name' => '🇫🇷 Français', 'filename' => 'README.fr.md'],
+            'pt' => ['name' => '🇵🇹 Português', 'filename' => 'README.pt.md'],
+            'ru' => ['name' => '🇷🇺 Русский', 'filename' => 'README.ru.md'],
+            'zh' => ['name' => '🇨🇳 简体中文', 'filename' => 'README.zh.md'],
+            'ko' => ['name' => '🇰🇷 한국어', 'filename' => 'README.ko.md'],
+            'es' => ['name' => '🇪🇸 Español', 'filename' => 'README.es.md'],
+            'default' => ['name' => '🌐 Default (README.md)', 'filename' => 'README.md']
+        ];
+
+        $results = [];
+
+        // 1. Contents APIからファイル一覧取得を試行
+        $contents = $this->request("/repos/{$repoPath}/contents?ref={$branch}");
+        if (is_array($contents)) {
+            foreach ($contents as $file) {
+                $name = $file['name'] ?? '';
+                if (!is_string($name) || !str_starts_with(strtoupper($name), 'README')) {
+                    continue;
+                }
+
+                // 言語判定
+                $langCode = 'default';
+                $langLabel = '🌐 Default';
+                if (preg_match('/^README\.([a-zA-Z_\-]+)\.md$/i', $name, $m)) {
+                    $code = strtolower($m[1]);
+                    $langCode = $code;
+                    $langLabel = $knownLanguages[$code]['name'] ?? strtoupper($code);
+                } elseif (strcasecmp($name, 'README.md') === 0 || strcasecmp($name, 'README') === 0) {
+                    $langCode = 'default';
+                    $langLabel = '🌐 Default (README.md)';
+                }
+
+                $downloadUrl = $file['download_url'] ?? null;
+                $rawContent = '';
+                if (is_string($downloadUrl) && $downloadUrl !== '') {
+                    $rawContent = (string)@file_get_contents($downloadUrl);
+                }
+
+                if ($rawContent !== '') {
+                    $results[] = [
+                        'code' => $langCode,
+                        'name' => $langLabel,
+                        'filename' => $name,
+                        'content' => $rawContent
+                    ];
+                }
+            }
+        }
+
+        // 2. Contents APIが取れなかった場合やレートリミット時のRawフォールバック
+        if (empty($results)) {
+            $candidates = [
+                'ja' => 'README.ja.md',
+                'default' => 'README.md',
+                'en' => 'README.en.md',
+                'de' => 'README.de.md',
+                'fr' => 'README.fr.md',
+                'pt' => 'README.pt.md',
+                'ru' => 'README.ru.md'
+            ];
+
+            foreach ($candidates as $code => $filename) {
+                $rawUrl = "https://raw.githubusercontent.com/{$repoPath}/{$branch}/{$filename}";
+                $ctx = stream_context_create([
+                    'http' => [
+                        'timeout' => 3,
+                        'user_agent' => 'ReleaseHub-Engine/1.0'
+                    ]
+                ]);
+                $content = @file_get_contents($rawUrl, false, $ctx);
+                if ($content !== false && trim($content) !== '') {
+                    $results[] = [
+                        'code' => $code,
+                        'name' => $knownLanguages[$code]['name'] ?? strtoupper($code),
+                        'filename' => $filename,
+                        'content' => $content
+                    ];
+                }
+            }
+        }
+
+        return $results;
+    }
+
     public function isRateLimited(): bool
     {
         if ($this->rateLimitRemaining <= 0) {

@@ -36,4 +36,26 @@ function runWebPortalRoutesIntegrationTests(): void
     // IT-11: 不正なページパラメータフォールバック
     $htmlFallback = $app->handleWeb(['page' => 'unknown_page_xyz']);
     TestAssert::assertStringContains('登録ツール一覧', $htmlFallback, 'Web IT-11: Fallbacks to tools list');
+
+    // IT-21: README単体ページ
+    $readmeDir = $tempStorage . '/readmes/TrustChain';
+    @mkdir($readmeDir, 0755, true);
+    file_put_contents($readmeDir . '/README.ja.md', "# 日本語単体ドキュメント\n単体ページ検証");
+    $meta = [
+        'tool_id' => 'TrustChain',
+        'last_synced_at' => date('c'),
+        'languages' => [
+            ['code' => 'ja', 'name' => '🇯🇵 日本語', 'filename' => 'README.ja.md']
+        ]
+    ];
+    file_put_contents($readmeDir . '/readmes.json', json_encode($meta));
+
+    $htmlReadme = $app->handleWeb(['page' => 'readme', 'tool' => 'TrustChain', 'lang' => 'ja']);
+    TestAssert::assertStringContains('TrustChain Authenticator - ドキュメント', $htmlReadme, 'Web IT-21: Readme standalone page title');
+    TestAssert::assertStringContains('<h1>日本語単体ドキュメント</h1>', $htmlReadme, 'Web IT-21: Readme content rendered');
+
+    // IT-22: ツール詳細画面 READMEボタン & モーダル描画
+    $htmlDetailWithReadme = $app->handleWeb(['page' => 'tool', 'id' => 'TrustChain']);
+    TestAssert::assertStringContains('📖 ドキュメント・README', $htmlDetailWithReadme, 'Web IT-22: README button present');
+    TestAssert::assertStringContains('readmeModal', $htmlDetailWithReadme, 'Web IT-22: README modal present');
 }
