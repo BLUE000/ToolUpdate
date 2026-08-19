@@ -151,6 +151,17 @@ sequenceDiagram
 2. **ダウンロード API** (`GET /api/v1/download`):
    - 指定されたバージョン・種類のZIPをストリーム返却（DLログを自動記録）。
 
+### 4.6 外部連携 & 更新通知機能 (RSS / XML / WebHook)
+新バージョンリリース時に、外部システムやユーザーへ即座に更新情報を周知・連携する仕組みを提供：
+1. **RSS 2.0 フィード (`GET /rss.xml` / `GET /rss.xml?tool={tool_id}`)**:
+   - 最新リリース情報を標準的なRSS 2.0形式で配信。
+   - リーダーアプリやSlackのRSSインテグレーションで更新を購読可能。
+2. **XML 配信 (Appcast形式 / 汎用XML) (`GET /feed.xml`)**:
+   - WinSparkle / Sparkleなどの自動更新ライブラリや他システムでパースしやすいXMLフォーマットで配信。
+3. **アウトゴーイング WebHook 送信**:
+   - 新規リリース生成が完了したタイミングで、設定された外部Webhook URL（Discord / Slack / Teams / 独自サーバー等）へ自動で更新通知ペイロード（JSON）をPOST送信。
+   - ペイロード例: ツール名、バージョン、リリース日時、変更点要約、ダウンロードURL。
+
 ---
 
 ## 5. データ構造定義
@@ -235,21 +246,24 @@ d:/prog/PHP/updates/
 │   └── release.php             # リリース生成・同期CLIコマンド
 ├── config/
 │   ├── branches.json           # 監視対象ツール・ブランチ設定
+│   ├── webhooks.json           # Webhook送信先設定
 │   └── geoip.json              # 簡易IP-国マッピング（またはGeoIP設定）
 ├── doc/
 │   └── requirements.md         # 要件定義書（本ドキュメント）
-├── public/                     # Web公開領域（WebUI & API）
+├── public/                     # Web公開領域（WebUI & API & Feeds）
 │   ├── assets/                 # CSS, JS, アイコン等の静的アセット
 │   │   ├── css/style.css
 │   │   └── js/main.js
 │   ├── index.php               # Webポータル（一覧 / 詳細 / 最近 / 全体 / ランキング）
-│   └── api.php                 # アップデータEXE向け REST API
+│   ├── api.php                 # アップデータEXE向け REST API
+│   └── feed.php                # RSS 2.0 / XML / Appcast 出力エンドポイント
 ├── repos/                      # 監視対象ツールのGitクローン/作業領域 (.gitignore)
 ├── src/                        # PHPソースコード
 │   ├── Api/                    # APIコントローラー
 │   ├── Config/                 # 設定ローダー
 │   ├── Git/                    # Git/GitHub API操作
 │   ├── Log/                    # ダウンロードログ記録・ホスト/国解析・ランキング集計
+│   ├── Notifier/               # Webhook送信 / RSS・XML生成
 │   ├── Package/                # ZIPアーカイブ・差分生成
 │   └── ReleaseManager.php      # リリース処理全体の統括
 ├── storage/                    # 生成ZIP・ログ保存領域 (.gitignore)
