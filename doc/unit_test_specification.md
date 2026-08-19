@@ -74,6 +74,7 @@
 | UT-05-02 | 正常系: プレースホルダー置換 | テンプレート `{TOOL_NAME}`, パラメータ `TrustChain` | `renderComponent(...)` | プレースホルダーが `TrustChain` に置換される |
 | UT-05-03 | 正常系: XSSエスケープ検証 | パラメータ `<script>alert(1)</script>` | `renderComponent(...)` | `&lt;script&gt;` に無害化されて出力される |
 | UT-05-04 | 正常系: レイアウト結合 | `layout.md` と `pages/tools.md` | `render('pages/tools.md', ...)` | ヘッダー・フッターを含む完全なHTMLが生成される |
+| UT-05-05 | 正常系: リスト＆インデント変換 | `- **項目**`, `  - サブ`, `• バレット` | `markdownToHtml($md)` | ネストされたリストおよび太字がHTMLとして正しく変換される |
 
 ---
 
@@ -84,6 +85,7 @@
 | UT-06-01 | 正常系: リポジトリURL解析 | `https://github.com/BLUE000/TrustChain.git` | `parseRepoPath(...)` | `BLUE000/TrustChain` が抽出される |
 | UT-06-02 | 正常系: レートリミット状態判定 | `rateLimitRemaining = 0` | `isRateLimited()` | `true` が返る |
 | UT-06-03 | 正常系: レートリミット通常時判定 | `rateLimitRemaining = 50` | `isRateLimited()` | `false` が返る |
+| UT-06-04 | 正常系: 多言語README取得 | 多言語READMEが存在するリポジトリURL | `getReadmeFiles($repoUrl)` | `README.md`, `README.ja.md` 等の言語コード付き配列が返る |
 
 ---
 
@@ -94,3 +96,5 @@
 | UT-07-01 | 正常系: manifest保存・取得 | 正常なmanifestデータ | `saveManifest()`, `getManifest()` | 保存した通りのデータがJSONから復元される |
 | UT-07-02 | 正常系: TTLキャッシュ判定 | 直近(1分前)に同期済みのデータ | `checkAndSync($tool, force: false)` | GitHub APIを呼ばずに既存manifestを返却する |
 | UT-07-03 | 正常系: 排他ロック制御 | ロックファイルが存在しない状態 | `acquireLock()` / `releaseLock()` | ロックが正常に取得・解放される |
+| UT-07-04 | 正常系: 多言語READMEキャッシュ・取得 | `README.ja.md`, `README.md` を保存 | `getReadme('TwitchFollowerList', 'ja')` | 日本語READMEテキスト・HTMLおよび言語一覧が返る |
+| UT-07-05 | 正常系: リリースノート空時デフォルト補完 | `body` が空のリリース | `checkAndSync($tool, force: true)` | `*リリースノートは記載されていません。*` が設定される |

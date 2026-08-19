@@ -259,6 +259,85 @@ server/public/assets/css/
 
 ---
 
+### 3.3 管理者リモート同期 API (`api.php?action=sync`)
+管理者がローカルPC（バッチファイル等）から安全にサーバー側リリース同期をトリガーするエンドポイント。
+
+- **HTTP Method**: `GET` または `POST`
+- **URL**: `api.php?action=sync&token={admin_sync_token}[&tool={tool_id}]`
+- **リクエストパラメータ**:
+  | パラメータ | 型 | 必須 | 説明 | 例 |
+  | :--- | :--- | :--- | :--- | :--- |
+  | `action` | string | ○ | 固定値 `sync` | `sync` |
+  | `token` | string | ○ | 管理者同期トークン (`branches.json` の `admin_sync_token` と一致) | `secret-token-123` |
+  | `tool` | string | - | 特定ツールのみ同期する場合に指定 (省略時は全ツール) | `TrustChain` |
+
+- **レスポンス (JSON / HTTP 200 OK / 変化なし時)**:
+  ```json
+  {
+    "status": "up_to_date",
+    "has_changes": false,
+    "message": "All tools are already up to date. No changes made.",
+    "timestamp": "2026-08-20T03:00:00+09:00"
+  }
+  ```
+- **レスポンス (JSON / HTTP 200 OK / 新規リリース更新時)**:
+  ```json
+  {
+    "status": "updated",
+    "has_changes": true,
+    "updated_count": 1,
+    "updated_tools": [
+      {
+        "tool_id": "TwitchFollowerList",
+        "version": "v2.6.0",
+        "status": "new_release_created"
+      }
+    ],
+    "message": "New releases successfully synchronized and packages created.",
+    "timestamp": "2026-08-20T03:00:05+09:00"
+  }
+  ```
+- **レスポンス (HTTP 403 Forbidden / 認証失敗時)**:
+  ```json
+  {
+    "status": "error",
+    "message": "Forbidden: Invalid or missing admin sync token"
+  }
+  ```
+
+---
+
+### 3.4 多言語README取得 API (`api.php?action=readme`)
+モーダルウィンドウまたは外部から多言語READMEのコンテンツおよび利用可能言語一覧を取得するエンドポイント。
+
+- **HTTP Method**: `GET`
+- **URL**: `api.php?action=readme&tool={tool_id}[&lang={lang}]`
+- **リクエストパラメータ**:
+  | パラメータ | 型 | 必須 | 説明 | 例 |
+  | :--- | :--- | :--- | :--- | :--- |
+  | `action` | string | ○ | 固定値 `readme` | `readme` |
+  | `tool` | string | ○ | ツールID | `TwitchFollowerList` |
+  | `lang` | string | - | 言語コード (例: `ja`, `en`, `de`, `default`)。省略時は日本語(ja)優先またはデフォルト | `ja` |
+
+- **レスポンス (JSON / HTTP 200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "tool_id": "TwitchFollowerList",
+    "tool_name": "Twitch Follower List",
+    "current_lang": "ja",
+    "available_languages": [
+      {"code": "ja", "name": "🇯🇵 日本語", "filename": "README.ja.md"},
+      {"code": "en", "name": "🇺🇸 English", "filename": "README.md"},
+      {"code": "de", "name": "🇩🇪 Deutsch", "filename": "README.de.md"}
+    ],
+    "content_markdown": "# Twitch Follower List\n\nTwitchのフォロワー一覧を...",
+    "content_html": "<h1>Twitch Follower List</h1><p>Twitchのフォロワー一覧を...</p>"
+  }
+  ```
+
+---
+
 ### 3.3 フィード配信 API (`feed.php`)
 - **RSS 2.0**: `feed.php?type=rss[&tool={tool_id}]` (`Content-Type: application/rss+xml; charset=utf-8`)
 - **XML / Appcast**: `feed.php?type=xml[&tool={tool_id}]` (`Content-Type: application/xml; charset=utf-8`)

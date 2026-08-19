@@ -58,4 +58,10 @@
 | :-: | :--- | :--- | :--- | :--- |
 | IT-15 | リリース自動同期 & 差分生成結合 | 新規Release（v2.1.0）が存在する状態 | `ReleaseManager` & `ZipPackager` | アタッチZIPが取得され、差分ZIPが自動生成され、`manifest.json` が最新化される |
 | IT-16 | GitHub APIレートリミット耐性 | GitHub APIがHTTP 403を返す状態 | `GitHubClient` & `ReleaseManager` | 既存の `manifest.json` を維持し、Web画面・APIが停止せず正常稼働を継続する |
-| IT-17 | 同時アクセス排他制御結合 | 2つのプロセスが同時に同期を実行 | `ReleaseManager` (flock) | 一方がロックを取得して同期を完了し、もう一方は待機または既存キャッシュを返して安全に終了する |
+| IT-17 | 並行アクセス排他ロック結合 | 複数プロセスが同時に同期を実行 | `ReleaseManager` | `storage/locks/sync.lock` で排他され、ZIP生成の重複破損が発生しない |
+| IT-18 | Webhook通知結合 | 新規リリース生成時 | `WebhookNotifier` | 設定されたDiscord/Slack Webhook URLへJSONペイロードが送信される |
+| IT-19 | 管理者リモート同期 API (action=sync) | `GET api.php?action=sync&token=...` | `App::handleApi` | 管理者トークン認証が正常に行われ、変化なし時はスキップ、新規リリース時はパッケージ生成＆通知が実行される |
+| IT-20 | 多言語README取得 API (action=readme) | `GET api.php?action=readme&tool=TwitchFollowerList&lang=ja` | `App::handleApi` & `ReleaseManager` | 指定言語のMarkdownおよびHTML、利用可能言語一覧がJSON形式で返却される |
+| IT-21 | README単体ページルート | `GET index.php?page=readme&tool=TwitchFollowerList&lang=ja` | `App::handleWeb` | 別タブ閲覧用のREADMEページがHTMLとして正常描画される |
+| IT-22 | ツール詳細画面 ドキュメント連携・空ノート | `GET index.php?page=tool&id=TwitchFollowerList` | `App::handleWeb` & `MarkdownRenderer` | 「📖 ドキュメント・README」モーダルボタンが配置され、空リリースノート時はデフォルト文言が表示され、本文内のREADME文字列がモーダルリンクへ自動変換される |
+| IT-23 | 全面デグレ防止・回帰テスト | 全API・全Web画面・全機能の一括実行 | 全モジュール | 既存の全機能（check, download, ranking, badges, recent, releases, feeds, sync）が一切破損せず完全PASSすること |

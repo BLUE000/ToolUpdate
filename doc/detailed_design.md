@@ -131,6 +131,7 @@ class GitHubClient
     public function getLatestRelease(string $repoUrl): ?array
     public function getReleases(string $repoUrl): array
     public function downloadAsset(string $assetUrl, string $savePath): bool
+    public function getReadmeFiles(string $repoUrl): array
     public function isRateLimited(): bool
     public function getRateLimitResetTime(): int
     private function parseRepoPath(string $repoUrl): ?string
@@ -146,6 +147,9 @@ class GitHubClient
   - User-Agent ヘッダ（`ReleaseHub-Engine/1.0`）を付与。
   - レスポンスヘッダから `X-RateLimit-Remaining` と `X-RateLimit-Reset` を取得・更新。
   - HTTP 403 (Rate Limit) 時はログを記録し `null` を返却。
+- `getReadmeFiles(string $repoUrl): array`
+  - リポジトリのルートファイル一覧を取得（または主要な多言語README候補 `README.md`, `README.ja.md`, `README.en.md`, `README.de.md`, `README.fr.md`, `README.pt.md`, `README.ru.md` をraw取得）。
+  - 存在する各READMEファイルについて、`['code' => 'ja', 'name' => '🇯🇵 日本語', 'filename' => 'README.ja.md', 'content' => '...']` の配列を生成して返却。
 - `downloadAsset(string $assetUrl, string $savePath): bool`
   - アタッチされたZIPファイルをストリームダウンロードして指定パスに保存。
 
@@ -178,7 +182,7 @@ class ZipPackager
 ---
 
 ### 2.6 `ReleaseHub\Package\ReleaseManager`
-リリース同期のライフサイクル統括、TTLキャッシュ判定、排他制御（`flock`）、manifest.jsonの生成・更新。
+リリース同期のライフサイクル統括、TTLキャッシュ判定、排他制御（`flock`）、多言語READMEのキャッシュ、manifest.jsonの生成・更新。
 
 ```php
 namespace ReleaseHub\Package;
@@ -196,6 +200,9 @@ class ReleaseManager
     public function getManifest(string $toolId): ?array
     public function checkAndSync(array $toolConfig, bool $force = false): array
     public function saveManifest(string $toolId, array $manifest): bool
+    public function syncReadmes(array $toolConfig): array
+    public function getReadmes(string $toolId): array
+    public function getReadme(string $toolId, string $lang = 'ja'): ?array
     private function acquireLock(): mixed
     private function releaseLock(mixed $lockHandle): void
 }
@@ -206,8 +213,17 @@ class ReleaseManager
   - 1. 保存済み `manifest.json` を確認。
   - 2. `$force === false` かつ `last_synced_at + $this->ttlSeconds > time()` であれば即座に既存 manifest を返却。
   - 3. `acquireLock()` で `storage/locks/sync.lock` の排他ロック取得（取得できない場合は他プロセスが同期中のため既存 manifest を返却）。
-  - 4. GitHub API で最新Releaseを取得。
-  - 5. 新規バージョンが検出された場合：
+  - 4. GitHub API で最新Releaseおよび多言語READMEを取得（`syncReadmes` 実行）。
+  - 5. リリースノートが空の場合はデフォルトメッセージ（`*リリースノートは記載されていません。*`）を設定。
+  - 6. 新規バージョンが検出された場合：
+     - アタッチされたZIPをダウンロード。
+     - 前回リリースと比較して差分ZIPを作成、フルZIPを作成。
+     - `manifest.json` をアトミック更新（一時ファイル作成 ➔ `rename`）。
+  - 7. `releaseLock()` でロック解放。
+- `syncReadmes(array $toolConfig): array`
+  - GitHubから多言語READMEを取得し、`storage/readmes/{tool_id}/` に個別ファイル（`README.ja.md` 等）および目録（`readmes.json`）を保存。
+- `getReadme(string $toolId, string $lang = 'ja'): ?array`
+  - 指定された言語（またはデフォルト）のREADMEテキスト・HTML・利用可能言語一覧を返却。
        - アタッチZIPがあればダウンロード、なければソースから全体ZIP生成。
        - 前回バージョンがあれば `ZipPackager::createDiffZip` で差分ZIP生成。
        - SHA256ハッシュを計算し、`manifest.json` を更新。
