@@ -1,18 +1,28 @@
 # Repositories working area
-/repos/*
-!/repos/.gitkeep
+/server/repos/*
+!/server/repos/.gitkeep
 
 # Storage and generated packages
-/storage/releases/*
-!/storage/releases/.gitkeep
-/storage/tmp/*
-!/storage/tmp/.gitkeep
+/server/storage/releases/*
+!/server/storage/releases/.gitkeep
+/server/storage/tmp/*
+!/server/storage/tmp/.gitkeep
+/server/storage/locks/*
+!/server/storage/locks/.gitkeep
 
 # Logs
+/server/storage/logs/*
+!/server/storage/logs/.gitkeep
 /logs/*
 !/logs/.gitkeep
 *.log
 /DecisionLog/*
+
+# Test temporary storage and logs
+/tests/temp_storage/*
+!/tests/temp_storage/.gitkeep
+/tests/logs/*
+!/tests/logs/.gitkeep
 
 # Dependencies
 /vendor/
