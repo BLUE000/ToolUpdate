@@ -1,126 +1,224 @@
 # ソフトウェア更新・フルパッケージ管理システム（ToolUpdate） 要件定義書
 
 ## 1. プロジェクト概要
-- **システム名**: ToolUpdate（ソフトウェア更新・フルパッケージ管理システム）
+- **システム名**: ToolUpdate（PCツール向け更新・フルパッケージ管理システム）
 - **本システム Git リポジトリ**: `https://github.com/BLUE000/ToolUpdate.git`
 - **本システム デフォルトブランチ**: `master`
 
-### 1.1 目的
-本システムは、管理対象となる複数の外部/内部ソフトウェア（各Gitリポジトリ）のブランチ情報をJSON形式で保持・管理し、リリース発生時（タグ付けやマージなど）に各ソフトウェアの「アップデート用ファイル（差分）」および「フルインストール用ファイル（一式）」をGitから自動取得・生成・管理するPHPアプリケーションです。
+### 1.1 目的・背景
+PC上で動作する複数のクライアントツール（デスクトップアプリ/CLIツール等）において、バージョンアップ時の**「手動でZIPファイルをダウンロードして手作業で解凍・配置する」という手間を解消**することを目的とします。
+
+本システム（ToolUpdate）は、各ツールのGitリポジトリ（GitHub Releases / タグ）を監視・管理し、リリース時に自動でアップデート用差分ZIPおよびフルインストールZIPを生成・保管します。また、PCツール側の「アップデート用EXE」と連携した自動最新化、Web画面からの手動ダウンロード、ダウンロード履歴の詳細ログ解析（国・ホスト名特定）、およびTOPページでのダウンロードランキング表示を提供します。
 
 ---
 
-## 2. システム構成・全体像
+## 2. システム全体像 & アーキテクチャ
 
 ```mermaid
 flowchart TD
-    Config[ブランチ定義 JSON\n(branches.json)] --> System[ToolUpdate\nPHP管理システム]
-    GitRepo[(各ソフトウェアのGitリポジトリ\nGitHub / GitLab / ローカル)] <-->|Git コマンド / API| System
-    System -->|差分抽出 & Zip化| UpdatePkg[アップデートファイル\n(update_vX.X.X.zip)]
-    System -->|アーカイブ作成| FullPkg[フルインストールファイル\n(full_vX.X.X.zip)]
-    System --> Meta[リリース履歴・メタデータJSON]
-    UpdatePkg --> Storage[(パッケージ保存領域 /storage/)]
-    FullPkg --> Storage
+    subgraph GitEnv [開発・Git環境]
+        Repos[(監視対象ツールのGitリポジトリ\nGitHub Releases / タグ)]
+    end
+
+    subgraph ToolUpdateServer [ToolUpdate (本システム / サーバー環境)]
+        Config[監視対象ブランチ定義\nconfig/branches.json]
+        ReleaseEngine[リリース生成エンジン\n(差分/フルZIP & 変更点生成)]
+        LogEngine[ダウンロードログ・解析エンジン\n(ホスト名・国特定 & ランキング集計)]
+        Storage[(パッケージ・ログ保管庫\n/storage/)]
+        
+        WebPortal[Web管理 & ポータル画面\n(一覧 / 最近 / 全体 / ランキング)]
+        UpdateAPI[アップデート配信 API\n/api/check, /api/download]
+    end
+
+    subgraph ClientPC [PC環境 (ユーザー端末)]
+        ToolApp[PCツール本体]
+        UpdaterExe[アップデート用 EXE\n(各ツールに付属)]
+    end
+
+    %% リリース生成フロー
+    Repos -->|① リリース検知 / 取得| ReleaseEngine
+    Config --> ReleaseEngine
+    ReleaseEngine -->|② ZIP & manifest 生成| Storage
+    Storage --> WebPortal
+    Storage --> UpdateAPI
+
+    %% 手動ダウンロード
+    WebPortal -.->|ブラウザから手動DL (最新/旧Ver)| ClientPC
+    WebPortal -->|DLログ記録| LogEngine
+
+    %% 自動アップデート (EXE連携)
+    ToolApp -->|起動 / 更新チェック| UpdaterExe
+    UpdaterExe -->|③ 最新Ver問い合わせ| UpdateAPI
+    UpdateAPI -->|④ manifest(URL, SHA256等)| UpdaterExe
+    UpdaterExe -->|⑤ ZIP自動取得| UpdateAPI
+    UpdateAPI -->|DLログ記録| LogEngine
+    UpdaterExe -->|⑥ 最新化完了| ToolApp
+
+    %% ログ集計
+    LogEngine --> Storage
+    Storage -->|ランキング・統計データ| WebPortal
 ```
 
 ---
 
-## 3. 機能要件
+## 3. シーケンス（リリースからPCツールの自動最新化・ログ記録まで）
 
-### 3.1 ブランチ・ソフトウェア情報管理機能
-- 管理対象ソフトウェアごとに、ソフトウェアID、表示名、GitリポジトリURL（またはローカルパス）、対象ブランチ、除外ファイル/フォルダ設定などをJSON形式（`branches.json`）で保持・管理する。
-- 複数ソフトウェア（複数リポジトリ）の登録・設定更新に対応する。
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as 開発者
+    participant Git as GitHubリポジトリ
+    participant Server as ToolUpdate (本サーバー)
+    actor User as PCユーザー / 運用者
+    participant Updater as PCツール側 アップデータEXE
+    participant App as PCツール本体
 
-### 3.2 Git連携 & リリース検知/指定機能
-- **リリース検知/指定方式**:
-  - タグ指定（例: `v1.0.1` などのタグ指定）
-  - コミットハッシュ / リビジョン指定
-  - ブランチの最新HEAD取得
-- **Git操作**:
-  - 対象リポジトリのClone / Fetch / Checkout
-  - ローカルのGit CLI（`git archive` / `git diff` 等）または API（GitHub/GitLab REST API 等）を利用した取得処理。
+    Note over Dev,Server: 1. リリース発生・パッケージ自動生成
+    Dev->>Git: 新バージョン (GitHub Release または タグ) 作成
+    Server->>Git: リリース検知 (CLI / Webhook / 手動同期)
+    Server->>Server: 差分ZIP & フルZIP & manifest.json & 変更点抽出を自動実行
 
-### 3.3 パッケージ生成機能
-1. **アップデートファイル（差分パッケージ）**:
-   - 指定した前回リリースバージョン（タグまたはコミット）と今回リリースバージョンの差分（`git diff --name-only` / `git archive` 等）を抽出し、変更・追加されたファイル群のみをアーカイブ（.zip / .tar.gz）化。
-   - 削除されたファイルの一覧（`delete_list.txt` 等）も含めて管理。
-2. **フルインストールファイル（全体パッケージ）**:
-   - 指定ブランチ・タグのリリース時点の全ファイルをアーカイブ（.zip / .tar.gz）化。
-   - `.git` ディレクトリや `.env`、CI設定ファイルなどの除外対象（`.gitattributes` や設定の除外ルール）を適切に除外。
-
-### 3.4 配布パッケージ・リリース履歴管理
-- 生成したパッケージを指定の保存ディレクトリ（`storage/releases/<software_id>/<version>/` 等）に配置。
-- 各リリースのメタデータ（バージョン名、コミットハッシュ、リリース日時、ファイルサイズ、SHA256チェックサム等）を記録・管理。
-- 必要に応じて最新バージョンの参照（`latest.json` 等）を出力・更新。
-
-### 3.5 実行インターフェース
-- **CLI（コマンドライン）実行**:
-  - コマンド一発で指定ソフトウェアのリリース取得・生成を実行（Cron実行やCI/CD連携を想定）。
-  - 例: `php bin/release.php --app=app_a --tag=v1.2.0 --prev=v1.1.0`
-- **Web UI / Webhook（将来/拡張）**:
-  - 管理画面からの手動実行、GitHub/GitLab等のWebhook通知連動による自動生成。
+    Note over User,App: 2. 配布・ダウンロード & ログ記録
+    alt Web画面からの手動ダウンロード
+        User->>Server: Webポータルにアクセス
+        Server-->>User: ZIPダウンロード
+        Server->>Server: DLログ記録 (日時, ツール, Ver, IP, ホスト名, 国名)
+    else アップデータEXEによる自動更新 (推奨)
+        User->>Updater: アップデータEXEを実行
+        Updater->>Server: GET /api/v1/check?tool=TrustChain&current=v2.0.0
+        Server-->>Updater: 最新版情報 (v2.1.0, DL先URL, SHA256, 変更点, 削除ファイル一覧)
+        Updater->>Server: GET /api/v1/download?tool=TrustChain&version=v2.1.0&type=update
+        Server-->>Updater: update_v2.1.0.zip を送信
+        Server->>Server: DLログ記録 (日時, ツール, Ver, IP, ホスト名, 国名, Client=EXE)
+        Updater->>Updater: ハッシュ検証 ➔ バックアップ ➔ ZIP解凍・上書き
+        Updater-->>App: 最新化完了 (ツール本体を再起動)
+    end
+```
 
 ---
 
-## 4. データ構造定義
+## 4. 機能要件
 
-### 4.1 管理対象ソフトウェア・ブランチ定義 (`config/branches.json`)
-本システムが管理する対象ソフトウェア一覧を定義するJSONファイル。
+### 4.1 監視対象リポジトリ・ブランチ管理
+- 複数のPCツールを登録可能（JSON設定ファイル `config/branches.json`）。
+- ツールID、表示名、GitリポジトリURL、対象ブランチ、除外ファイル設定（`.git`, テスト等）を保持。
+- GitHub Releases（アセットZIP）および Gitタグ/ブランチからのソースアーカイブの双方に対応。
 
+### 4.2 リリース生成 & 変更点（リリースノート）自動抽出
+1. **パッケージ生成**:
+   - **アップデート用ファイル（差分ZIP）**: 前回バージョンと今回バージョンの追加・変更ファイルのみをアーカイブ化。削除ファイル一覧（`delete_list.json`）も生成。
+   - **フルインストール用ファイル（全体ZIP）**: 全ファイル一式アーカイブ。
+   - **整合性ハッシュ計算**: 各ZIPのSHA-256ハッシュ値を算出し改ざん防止。
+2. **変更点（リリースノート）抽出ロジック**:
+   - **第一優先**: GitHub Release の本文（Markdown説明文）を取得。
+   - **フォールバック**: Release本文が空の場合、前回タグからの `git log`（コミットメッセージ一覧）から自動生成。
+
+### 4.3 Web管理 & ポータル画面（UI構成）
+画面上部のグローバルナビゲーションに以下のメニューを配置：
+
+1. **ツール/システム一覧 (`/` または `/tools`)**:
+   - リリース物としてGitから取得した全ツール・システムの一覧表示。
+   - ツール名、概要、最新バージョン、最終更新日、総ダウンロード数を表示。
+   - **人気ツールダウンロードランキング**: TOPページ上部に人気ツールランキング（TOP 5/10）を表示。
+   - **国別アクセス統計**: どの国・地域から多くダウンロードされているかの分布サマリー。
+   - ツール名によるリアルタイム検索窓。
+2. **ツール詳細 & リリース一覧 (`/tools/{tool_id}`)**:
+   - ツール概要、リポジトリリンク、**TOTALダウンロード数（累計）**を表示。
+   - **バージョン別人気ランキング**: ツール内でどのバージョンが多く利用されているかを表示。
+   - 「Gitから最新リリースを再取得」ボタン（手動同期）。
+   - バージョンごとのリリース履歴一覧（変更点、フルDL数、差分DL数、ダウンロードリンク、SHA256ハッシュ）。
+3. **最近のリリース (`/recent`)**:
+   - 直近でリリースのあったツールの一覧（時系列順）。
+   - ツール名リンク、最新バージョン、リリース日、変更点サマリーを表示。
+4. **リリース全体 (`/releases`)**:
+   - 全ツール横断の全リリース年表（タイムライン）。いつ・どのツールが更新されたかを一覧表示。
+
+### 4.4 ダウンロードログ記録 & アクセス解析
+ダウンロード発生時にバックグラウンドで詳細ログを記録・集計：
+- **記録項目**:
+  - ダウンロード日時（年・月・日・時・分・秒）
+  - ツールID、ツール名、ダウンロードバージョン
+  - パッケージ種別（フル / アップデート差分）
+  - IPアドレス、**ホスト名**（`gethostbyaddr` 逆引き）、**国コード・国名**（GeoIP / オフラインIP判定）
+  - User-Agent、クライアント種別（Webブラウザ / アップデータEXE）
+- **集計・活用**:
+  - ツール別累計ダウンロード数、バージョン別ダウンロード数、期間別（全期間/月間/週間）ランキングの自動算出。
+
+### 4.5 アップデート配信 API（アップデータEXE用エンドポイント）
+1. **バージョン確認 API** (`GET /api/v1/check`):
+   - クエリ: `tool_id`, `current_version`
+   - レスポンス: 最新バージョン、更新要否、リリースノート、ZIPのダウンロードURL、SHA256ハッシュ、削除対象ファイル一覧。
+2. **ダウンロード API** (`GET /api/v1/download`):
+   - 指定されたバージョン・種類のZIPをストリーム返却（DLログを自動記録）。
+
+---
+
+## 5. データ構造定義
+
+### 5.1 監視対象ツール定義 (`config/branches.json`)
 ```json
 {
-  "software_list": [
+  "tools": [
     {
-      "id": "sample_app_a",
-      "name": "Sample Application A",
-      "repository": "https://github.com/example/sample-app-a.git",
-      "branch": "main",
-      "work_dir": "./repos/sample_app_a",
+      "id": "TrustChain",
+      "name": "TrustChain",
+      "description": "C++アプリ向けビルド出自証明＆オンラインライセンス認証モジュール",
+      "repository": "https://github.com/BLUE000/TrustChain.git",
+      "branch": "master",
+      "work_dir": "./repos/TrustChain",
       "exclude": [
         ".git",
         ".github",
         ".gitignore",
-        "tests",
-        ".env.example"
-      ]
-    },
-    {
-      "id": "sample_app_b",
-      "name": "Sample Application B",
-      "repository": "https://github.com/example/sample-app-b.git",
-      "branch": "master",
-      "work_dir": "./repos/sample_app_b",
-      "exclude": [
-        ".git",
-        ".gitignore"
+        "tests"
       ]
     }
   ]
 }
 ```
 
-### 4.2 リリース履歴メタデータ (`storage/releases/<software_id>/manifest.json`)
-各ソフトウェアのリリース履歴を記録するメタデータファイル。
-
+### 5.2 ダウンロードログ構造 (`storage/logs/download_logs.jsonl`)
 ```json
 {
-  "software_id": "sample_app_a",
-  "latest_version": "v1.2.0",
+  "timestamp": "2026-08-19T09:50:00+09:00",
+  "tool_id": "TrustChain",
+  "version": "v2.1.0",
+  "package_type": "update",
+  "ip_address": "123.45.67.89",
+  "host_name": "client.example.isp.ne.jp",
+  "country_code": "JP",
+  "country_name": "Japan",
+  "user_agent": "ToolUpdater/1.0",
+  "client_type": "updater_exe"
+}
+```
+
+### 5.3 リリース管理メタデータ (`storage/releases/<tool_id>/manifest.json`)
+```json
+{
+  "tool_id": "TrustChain",
+  "tool_name": "TrustChain",
+  "latest_version": "v2.1.0",
+  "total_downloads": 1250,
   "releases": [
     {
-      "version": "v1.2.0",
-      "prev_version": "v1.1.0",
-      "release_date": "2026-08-19T08:30:00+09:00",
-      "commit_hash": "a1b2c3d4e5f...",
+      "version": "v2.1.0",
+      "prev_version": "v2.0.0",
+      "release_date": "2026-08-19T09:00:00+09:00",
+      "commit_hash": "e6f1d1e...",
+      "release_notes": "開発ブランチでの改ざん検知対応の改善\nGitHub API のレートリミット対策",
       "full_package": {
-        "filename": "sample_app_a_v1.2.0_full.zip",
+        "filename": "TrustChain_v2.1.0_full.zip",
         "size": 15423800,
-        "sha256": "..."
+        "sha256": "3a7bd...",
+        "downloads": 820
       },
       "update_package": {
-        "filename": "sample_app_a_v1.2.0_update_from_v1.1.0.zip",
+        "filename": "TrustChain_v2.1.0_update_from_v2.0.0.zip",
         "size": 425100,
-        "sha256": "..."
+        "sha256": "8f12c...",
+        "downloads": 430,
+        "deleted_files": []
       }
     }
   ]
@@ -129,62 +227,44 @@ flowchart TD
 
 ---
 
-## 5. ディレクトリ構成案
+## 6. ディレクトリ構成案
 
 ```
 d:/prog/PHP/updates/
 ├── bin/
-│   └── release.php             # CLIエントリーポイント
+│   └── release.php             # リリース生成・同期CLIコマンド
 ├── config/
-│   └── branches.json           # 管理対象ソフトウェア・ブランチ設定
+│   ├── branches.json           # 監視対象ツール・ブランチ設定
+│   └── geoip.json              # 簡易IP-国マッピング（またはGeoIP設定）
 ├── doc/
 │   └── requirements.md         # 要件定義書（本ドキュメント）
-├── repos/                      # 管理対象ソフトウェアのGitクローン/作業領域
+├── public/                     # Web公開領域（WebUI & API）
+│   ├── assets/                 # CSS, JS, アイコン等の静的アセット
+│   │   ├── css/style.css
+│   │   └── js/main.js
+│   ├── index.php               # Webポータル（一覧 / 詳細 / 最近 / 全体 / ランキング）
+│   └── api.php                 # アップデータEXE向け REST API
+├── repos/                      # 監視対象ツールのGitクローン/作業領域 (.gitignore)
 ├── src/                        # PHPソースコード
-│   ├── Config/                 # 設定・JSONローダー
-│   ├── Git/                    # Git操作（クローン・差分・タグ取得等）
-│   ├── Package/                # Zipアーカイブ・差分パッケージ生成
-│   └── ReleaseManager.php      # リリース処理全体の制御クラス
-├── storage/                    # 生成されたZIPファイル・マニフェスト保存領域
-│   └── releases/
+│   ├── Api/                    # APIコントローラー
+│   ├── Config/                 # 設定ローダー
+│   ├── Git/                    # Git/GitHub API操作
+│   ├── Log/                    # ダウンロードログ記録・ホスト/国解析・ランキング集計
+│   ├── Package/                # ZIPアーカイブ・差分生成
+│   └── ReleaseManager.php      # リリース処理全体の統括
+├── storage/                    # 生成ZIP・ログ保存領域 (.gitignore)
+│   ├── releases/               # ZIPファイル & manifest.json
+│   └── logs/                   # ダウンロードログファイル
 └── composer.json
 ```
 
 ---
 
-## 6. 環境構成・リポジトリ運用方針
+## 7. 環境構成・リポジトリ運用方針
 
-### 6.1 ソースコード管理・運用
-- **リポジトリ**: `https://github.com/BLUE000/ToolUpdate.git`
-- **デフォルトブランチ**: `master`
-- 本リポジトリにて、本システム（ToolUpdate）のソースコード・設定テンプレート・ドキュメント等を一元管理します。
-
-### 6.2 開発環境と本番環境の分離
-- **開発環境**: 本ローカル作業環境。機能実装・検証・テスト用。
-- **本番環境**: 別途用意される稼働サーバー（Linux / Windows / Docker 等）。
-- **環境ポータビリティ**:
-  - 相対パスまたは設定可能なベースパスを基盤とし、本番環境へのデプロイが容易な設計とする。
-  - Gitリポジトリで管理するものと、実行時に生成されるファイル（Git管理除外）を明確に分離する。
-
-### 6.3 Git除外対象 (`.gitignore`)
-- 管理対象ソフトウェアのクローン作業領域: `/repos/*`
-- リリースパッケージ・生成されたアーカイブ: `/storage/releases/*`
-- 実行ログ・一時ファイル: `/logs/*`, `/tmp/*`
-- 依存関係ライブラリ: `/vendor/*`
-- 環境固有設定: `config/branches.local.json` (オーバーライド用)
-
----
-
-## 7. 非機能要件・考慮事項
-
-1. **環境要件**:
-   - PHP 8.1以上
-   - `git` コマンドが実行可能な環境（またはZipArchive拡張機能などの標準機能活用）
-2. **安全性・整合性**:
-   - 生成された各Zipファイルの破損検証（Zip整合性チェックおよびSHA-256ハッシュ計算）。
-   - Git操作時の排他制御（同一リポジトリに対する同時更新処理の防止）。
-3. **エラーハンドリング**:
-   - Git fetch/checkout 失敗時の適切なログ出力とロールバック。
-   - 差分が存在しない場合のハンドリング。
-4. **ポータビリティ・環境適応性**:
-   - 開発環境（ローカル）と本番環境でパスやGitの実行権限が異なる場合にも設定の切り替えのみで動作可能な構造。
+1. **本システム自体のGit管理**:
+   - リポジトリ: `https://github.com/BLUE000/ToolUpdate.git` (ブランチ: `master`)
+2. **ポータビリティ**:
+   - 相対パス・設定駆動で構築し、開発環境（ローカル）から本番サーバー（Linux / Windows）へのデプロイを容易にする。
+3. **アップデータEXEとの高い互換性**:
+   - 軽量なHTTP GET JSON API（`/api.php?action=check` / `action=download`）により、C# / C++ (Qt) / Go / Rust / Python など多様な言語で作成されたクライアントEXEから容易に接続可能。
