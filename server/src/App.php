@@ -19,6 +19,7 @@ class App
     private ReleaseManager $releaseManager;
     private MarkdownRenderer $renderer;
     private FeedGenerator $feedGen;
+    private \ReleaseHub\Notifier\WebhookNotifier $notifier;
     private string $storageDir;
     private string $baseUrl;
 
@@ -42,6 +43,7 @@ class App
         $this->releaseManager = new ReleaseManager($this->storageDir, $gitClient, $packager);
         $this->renderer = new MarkdownRenderer($templateDir);
         $this->feedGen = new FeedGenerator();
+        $this->notifier = new \ReleaseHub\Notifier\WebhookNotifier();
         $this->baseUrl = '.';
     }
 
@@ -138,6 +140,64 @@ class App
                         'sha256' => $fullPkg['sha256'] ?? ''
                     ]
                 ]
+            ];
+        }
+
+        if ($action === 'sync') {
+            $token = $getParams['token'] ?? ($_POST['token'] ?? '');
+            $expectedToken = $this->config->getAdminSyncToken();
+
+            if ($expectedToken === '' || $token !== $expectedToken) {
+                http_response_code(403);
+                return ['status' => 'error', 'message' => 'Forbidden: Invalid or missing admin sync token'];
+            }
+
+            $tools = $this->config->getBranches();
+            $updatedTools = [];
+            $allUpToDate = true;
+
+            $globalWebhooks = $this->config->getWebhooks()['global_webhooks'] ?? [];
+
+            foreach ($tools as $tool) {
+                $id = $tool['id'] ?? '';
+                if ($toolId !== '' && $id !== $toolId) {
+                    continue;
+                }
+
+                $res = $this->releaseManager->checkAndSync($tool, force: true);
+                if ($res['status'] === 'new_release_created') {
+                    $allUpToDate = false;
+                    $version = $res['version'] ?? '';
+                    $manifest = $res['manifest'] ?? null;
+                    $releaseEntry = $manifest['releases'][0] ?? [];
+
+                    // Webhook通知送信
+                    $this->notifier->notify($tool, $releaseEntry, $globalWebhooks);
+
+                    $updatedTools[] = [
+                        'tool_id' => $id,
+                        'version' => $version,
+                        'status' => 'new_release_created'
+                    ];
+                }
+            }
+
+            if ($allUpToDate) {
+                return [
+                    'status' => 'up_to_date',
+                    'has_changes' => false,
+                    'message' => 'All tools are already up to date. No changes made.',
+                    'timestamp' => date('c')
+                ];
+            }
+
+            return [
+                'status' => 'updated',
+                'has_changes' => true,
+                'updated_count' => count($updatedTools),
+                'updated_tools' => $updatedTools,
+                'message' => 'New releases successfully synchronized and packages created.',
+                'timestamp' => date('c')
             ];
         }
 
@@ -338,6 +398,20 @@ class App
         $totalDl = $this->logEngine->getToolTotalDownloads($toolId);
 
         if ($manifest !== null && !empty($manifest['releases'])) {
+            $latestVer = $manifest['releases'][0]['version'] ?? '';
+            
+            // 最多ダウンロード数バージョンの特定
+            $maxDl = 0;
+            $mostDownloadedVer = '';
+            foreach ($manifest['releases'] as $rel) {
+                $v = $rel['version'] ?? '';
+                $dl = $this->logEngine->getVersionDownloads($toolId, $v);
+                if ($dl > $maxDl) {
+                    $maxDl = $dl;
+                    $mostDownloadedVer = $v;
+                }
+            }
+
             foreach ($manifest['releases'] as $rel) {
                 $ver = $rel['version'] ?? '';
                 $verDl = $this->logEngine->getVersionDownloads($toolId, $ver);
@@ -347,10 +421,20 @@ class App
                 $fullUrl = $fullPkg !== null ? sprintf('api.php?action=download&tool=%s&version=%s&type=full', urlencode($toolId), urlencode($ver)) : '#';
                 $updateUrl = $updatePkg !== null ? sprintf('api.php?action=download&tool=%s&version=%s&type=update', urlencode($toolId), urlencode($ver)) : '';
 
+                // 最新・人気バッジの生成
+                $badgesHtml = '';
+                if ($ver === $latestVer) {
+                    $badgesHtml .= '<span class="badge-tag badge-latest">🔥 最新版</span>';
+                }
+                if ($mostDownloadedVer !== '' && $ver === $mostDownloadedVer) {
+                    $badgesHtml .= '<span class="badge-tag badge-popular">👑 人気No.1</span>';
+                }
+
                 $releasesHtml .= $this->renderer->renderComponent('release_item', [
                     'VERSION' => htmlspecialchars($ver, ENT_QUOTES, 'UTF-8'),
+                    'BADGES' => $badgesHtml,
                     'RELEASE_DATE' => htmlspecialchars(date('Y-m-d H:i', strtotime($rel['release_date'] ?? 'now')), ENT_QUOTES, 'UTF-8'),
-                    'RELEASE_NOTES' => nl2br(htmlspecialchars($rel['release_notes'] ?? '', ENT_QUOTES, 'UTF-8')),
+                    'RELEASE_NOTES' => $this->renderer->markdownToHtml($rel['release_notes'] ?? ''),
                     'VERSION_DOWNLOADS' => number_format($verDl),
                     'FULL_SIZE' => isset($fullPkg['size']) ? sprintf('%.1f MB', $fullPkg['size'] / 1048576) : '-',
                     'FULL_SHA256' => htmlspecialchars($fullPkg['sha256'] ?? '-', ENT_QUOTES, 'UTF-8'),
@@ -372,7 +456,6 @@ class App
             'TOOL_ID' => htmlspecialchars($toolId, ENT_QUOTES, 'UTF-8'),
             'TOOL_NAME' => htmlspecialchars($tool['name'] ?? $toolId, ENT_QUOTES, 'UTF-8'),
             'TOOL_DESC' => htmlspecialchars($tool['description'] ?? '', ENT_QUOTES, 'UTF-8'),
-            'REPO_URL' => htmlspecialchars($tool['repository'] ?? '', ENT_QUOTES, 'UTF-8'),
             'TOTAL_DOWNLOADS' => number_format($totalDl),
             'RELEASES_LIST' => $releasesHtml
         ]);
@@ -402,6 +485,7 @@ class App
 
         $listHtml = '';
         foreach (array_slice($recentReleases, 0, 15) as $item) {
+            $notesHtml = $this->renderer->markdownToHtml($item['release_notes']);
             $listHtml .= sprintf(
                 '<div class="recent-item">
                     <div class="recent-header">
@@ -409,13 +493,13 @@ class App
                         <span class="version-tag">%s</span>
                         <span class="date">%s</span>
                     </div>
-                    <p class="notes">%s</p>
+                    <div class="notes-content">%s</div>
                 </div>',
                 urlencode($item['tool_id']),
                 htmlspecialchars($item['tool_name'], ENT_QUOTES, 'UTF-8'),
                 htmlspecialchars($item['version'], ENT_QUOTES, 'UTF-8'),
                 htmlspecialchars(date('Y-m-d H:i', $item['timestamp']), ENT_QUOTES, 'UTF-8'),
-                nl2br(htmlspecialchars($item['release_notes'], ENT_QUOTES, 'UTF-8'))
+                $notesHtml
             );
         }
 
@@ -451,19 +535,20 @@ class App
 
         $timelineHtml = '<ul class="timeline">';
         foreach ($allReleases as $item) {
+            $notesHtml = $this->renderer->markdownToHtml($item['release_notes']);
             $timelineHtml .= sprintf(
                 '<li>
                     <span class="timeline-date">%s</span>
                     <div class="timeline-content">
                         <h4><a href="?page=tool&id=%s">%s</a> <span class="badge">%s</span></h4>
-                        <p>%s</p>
+                        <div class="notes-content">%s</div>
                     </div>
                 </li>',
                 htmlspecialchars(date('Y-m-d', $item['timestamp']), ENT_QUOTES, 'UTF-8'),
                 urlencode($item['tool_id']),
                 htmlspecialchars($item['tool_name'], ENT_QUOTES, 'UTF-8'),
                 htmlspecialchars($item['version'], ENT_QUOTES, 'UTF-8'),
-                nl2br(htmlspecialchars($item['release_notes'], ENT_QUOTES, 'UTF-8'))
+                $notesHtml
             );
         }
         $timelineHtml .= '</ul>';

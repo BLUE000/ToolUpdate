@@ -8,12 +8,13 @@ function runMarkdownRendererTests(): void
     $renderer = new MarkdownRenderer(__DIR__ . '/../../server/templates');
 
     // UT-05-01: Markdown構文
-    $md = "# 見出し1\n\n**太字テキスト**\n- リスト項目1\n- リスト項目2";
+    $md = "# 見出し1\n\n- **設定タブ**の追加\n  - 言語の切り替え\n• UIの改善";
     $html = $renderer->markdownToHtml($md);
 
     TestAssert::assertStringContains('<h1>見出し1</h1>', $html, 'MarkdownRenderer: H1 heading rendered');
-    TestAssert::assertStringContains('<strong>太字テキスト</strong>', $html, 'MarkdownRenderer: Strong rendered');
-    TestAssert::assertStringContains('<li>リスト項目1</li>', $html, 'MarkdownRenderer: List item rendered');
+    TestAssert::assertStringContains('<strong>設定タブ</strong>', $html, 'MarkdownRenderer: Strong in list rendered');
+    TestAssert::assertStringContains('<li class="list-nested-1">言語の切り替え</li>', $html, 'MarkdownRenderer: Nested list item rendered');
+    TestAssert::assertStringContains('<li>UIの改善</li>', $html, 'MarkdownRenderer: Unicode bullet list rendered');
 
     // UT-05-02: プレースホルダー置換
     $comp = $renderer->renderComponent('ranking_card', [

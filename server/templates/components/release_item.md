@@ -2,6 +2,7 @@
     <div class="release-item-header">
         <div class="version-badge-group">
             <span class="badge-version-large">{VERSION}</span>
+            {BADGES}
             <span class="release-date-text">{RELEASE_DATE}</span>
         </div>
         <span class="version-downloads">このVerのDL数: <strong>{VERSION_DOWNLOADS}</strong></span>

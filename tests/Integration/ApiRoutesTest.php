@@ -57,4 +57,13 @@ function runApiRoutesIntegrationTests(): void
     // IT-03: 存在しないツール
     $apiRes3 = $app->handleApi(['action' => 'check', 'tool' => 'InvalidTool', 'current' => 'v1.0.0']);
     TestAssert::assertEquals('error', $apiRes3['status'] ?? '', 'API IT-03: status error for invalid tool');
+
+    // IT-04: 管理者同期 API (認証エラー)
+    $apiResAuthErr = $app->handleApi(['action' => 'sync', 'token' => 'wrong-token']);
+    TestAssert::assertEquals('error', $apiResAuthErr['status'] ?? '', 'API IT-04: Auth error on invalid token');
+
+    // IT-05: 管理者同期 API (正常系: 変化なしスキップ)
+    $apiResSyncOk = $app->handleApi(['action' => 'sync', 'token' => 'test-admin-secret-token']);
+    TestAssert::assertTrue(in_array($apiResSyncOk['status'] ?? '', ['up_to_date', 'updated']), 'API IT-05: Sync returns up_to_date or updated');
+    TestAssert::assertNotNull($apiResSyncOk['message'] ?? null, 'API IT-05: Message present');
 }

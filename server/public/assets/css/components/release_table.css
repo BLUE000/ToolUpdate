@@ -130,6 +130,28 @@
     font-family: var(--font-mono);
 }
 
+.badge-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.badge-latest {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-popular {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .release-date-text {
     color: var(--text-muted);
     font-size: 0.85rem;
@@ -154,10 +176,63 @@
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 14px;
+    padding: 16px 20px;
     font-size: 0.9rem;
     color: var(--text-secondary);
-    line-height: 1.6;
+    line-height: 1.7;
+}
+
+.notes-content p {
+    margin-bottom: 8px;
+}
+
+.notes-content p:last-child {
+    margin-bottom: 0;
+}
+
+.notes-content strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.notes-content code {
+    background: var(--bg-secondary);
+    color: #e2e8f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    border: 1px solid var(--border-color);
+}
+
+.notes-content a {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.notes-content a:hover {
+    color: #818cf8;
+}
+
+.notes-content .md-list {
+    margin: 8px 0;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.notes-content .md-list li {
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+}
+
+.notes-content .md-list li.list-nested-1 {
+    margin-left: 18px;
+    list-style-type: circle;
+}
+
+.notes-content .md-list li.list-nested-2 {
+    margin-left: 36px;
+    list-style-type: square;
 }
 
 .package-download-grid {

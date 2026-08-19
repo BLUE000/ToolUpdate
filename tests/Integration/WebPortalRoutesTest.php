@@ -22,7 +22,8 @@ function runWebPortalRoutesIntegrationTests(): void
     // IT-08: ツール詳細画面
     $htmlDetail = $app->handleWeb(['page' => 'tool', 'id' => 'TrustChain']);
     TestAssert::assertStringContains('TrustChain Authenticator - リリース履歴', $htmlDetail, 'Web IT-08: Tool detail title');
-    TestAssert::assertStringContains('Gitから最新同期', $htmlDetail, 'Web IT-08: Sync button present');
+    TestAssert::assertStringContains('RSSフィード', $htmlDetail, 'Web IT-08: RSS feed button present');
+    TestAssert::assertStringContains('🔥 最新版', $htmlDetail, 'Web IT-08: Latest badge rendered');
 
     // IT-09: 最近のリリース
     $htmlRecent = $app->handleWeb(['page' => 'recent']);

@@ -1,4 +1,5 @@
 {
+  "admin_sync_token": "test-admin-secret-token",
   "tools": [
     {
       "id": "TrustChain",

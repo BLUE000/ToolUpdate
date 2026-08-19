@@ -8,6 +8,11 @@ use ReleaseHub\Log\LogEngine;
 function runLogEngineTests(): void
 {
     $testLogDir = TEST_TEMP_STORAGE . '/logs';
+    if (is_dir($testLogDir)) {
+        foreach (glob($testLogDir . '/*') as $f) {
+            @unlink($f);
+        }
+    }
     $config = new ConfigLoader(TEST_FIXTURES_DIR);
     $resolver = new GeoIPResolver($config->getGeoIpData());
     $engine = new LogEngine($testLogDir, $resolver);

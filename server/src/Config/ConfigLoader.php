@@ -43,6 +43,22 @@ class ConfigLoader
         return $this->branchesCache;
     }
 
+    public function getAdminSyncToken(): string
+    {
+        $filePath = $this->configDir . '/branches.json';
+        if (!file_exists($filePath)) {
+            return '';
+        }
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            return '';
+        }
+        $data = json_decode($content, true);
+        return isset($data['admin_sync_token']) && is_string($data['admin_sync_token'])
+            ? trim($data['admin_sync_token'])
+            : '';
+    }
+
     public function getTool(string $toolId): ?array
     {
         $tools = $this->getBranches();
