@@ -24,7 +24,7 @@
         <div class="tools-header-area">
             <div class="title-wrap">
                 <h2>登録ツール一覧</h2>
-                <p class="subtitle">監視対象Gitリポジトリから自動生成された最新パッケージ</p>
+                <p class="subtitle">現在 <strong>{TOOLS_COUNT}</strong> 件のツールが公開されています</p>
             </div>
             <div class="search-box">
                 <input type="text" id="toolSearchInput" placeholder="ツール名で絞り込み..." class="search-input">

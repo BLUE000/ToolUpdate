@@ -404,6 +404,7 @@ class App
             'BASE_URL' => $this->baseUrl,
             'GLOBAL_NAV' => $this->renderer->renderComponent('nav', ['ACTIVE_PAGE' => 'tools', 'BASE_URL' => $this->baseUrl]),
             'TOOL_CARDS' => $cardsHtml,
+            'TOOLS_COUNT' => (string)count($tools),
             'RANKING_LIST' => $rankingHtml !== '' ? $rankingHtml : '<p class="empty-text">ログ集計待ち</p>',
             'COUNTRY_STATS' => $countryHtml !== '' ? $countryHtml : '<p class="empty-text">データなし</p>'
         ]);

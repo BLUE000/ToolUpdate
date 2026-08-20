@@ -16,6 +16,8 @@ function runWebPortalRoutesIntegrationTests(): void
     // IT-07: TOP/一覧画面
     $htmlIndex = $app->handleWeb([]);
     TestAssert::assertStringContains('Release<span class="highlight">Hub</span>', $htmlIndex, 'Web IT-07: Logo present');
+    TestAssert::assertStringContains('登録ツール一覧', $htmlIndex, 'Web IT-07: Tools list heading present');
+    TestAssert::assertStringContains('現在 <strong>', $htmlIndex, 'Web IT-07: Tools count present');
     TestAssert::assertStringContains('TrustChain Authenticator', $htmlIndex, 'Web IT-07: Tool listed');
     TestAssert::assertStringContains('人気ツールランキング', $htmlIndex, 'Web IT-07: Ranking panel present');
 

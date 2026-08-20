@@ -27,4 +27,16 @@ function runMarkdownRendererTests(): void
     TestAssert::assertStringContains('#1', $comp, 'MarkdownRenderer: Ranking badge #1');
     TestAssert::assertStringContains('TrustChain Authenticator', $comp, 'MarkdownRenderer: Tool name replaced');
     TestAssert::assertStringContains('1,250 DL', $comp, 'MarkdownRenderer: Downloads replaced');
+
+    // ページテンプレートでのTOOLS_COUNT置換
+    $pageHtml = $renderer->render('pages/tools.md', [
+        'PAGE_TITLE' => 'テスト一覧',
+        'BASE_URL' => '.',
+        'GLOBAL_NAV' => '',
+        'TOOL_CARDS' => '',
+        'TOOLS_COUNT' => '8',
+        'RANKING_LIST' => '',
+        'COUNTRY_STATS' => ''
+    ]);
+    TestAssert::assertStringContains('現在 <strong>8</strong> 件のツールが公開されています', $pageHtml, 'MarkdownRenderer: TOOLS_COUNT replaced');
 }
