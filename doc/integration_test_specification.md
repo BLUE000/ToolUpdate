@@ -34,7 +34,7 @@
 
 | No | テスト項目 | 実行リクエスト / 条件 | 検証対象 | 期待結果 (合格基準) |
 | :-: | :--- | :--- | :--- | :--- |
-| IT-07 | ポータルTOP/一覧画面ルート | `GET index.php` または `?page=tools` | `App::handleWeb` & `MarkdownRenderer` | ツール一覧カード、人気ランキングTOP10、国別統計、検索窓を含むHTMLが正常描画される |
+| IT-07 | ポータルTOP/一覧画面ルート | `GET index.php` または `?page=tools` | `App::handleWeb` & `MarkdownRenderer` | 「登録ツール一覧」見出し、「現在 〇〇 件のツールが公開されています」という総数表示、ツール一覧カード、人気ランキングTOP10、国別統計、検索窓を含むHTMLが正常描画される |
 | IT-08 | ツール詳細・リリース履歴ルート | `GET index.php?page=tool&id=TrustChain` | `App::handleWeb` & `LogEngine` | ツール詳細ヘッダー、累計DL数、バージョン別履歴、DLボタン、SHA256ハッシュが表示される |
 | IT-09 | 最近のリリース画面ルート | `GET index.php?page=recent` | `App::handleWeb` | 直近リリースツールの時系列リストとリリースノート要約が表示される |
 | IT-10 | 全体リリース年表ルート | `GET index.php?page=releases` | `App::handleWeb` | 全ツールの全バージョンが時系列タイムラインとして描画される |

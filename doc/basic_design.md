@@ -169,6 +169,7 @@ server/templates/
 | `{RANK_NUMBER}` | ランキング順位 (例: `1`, `2`) | `ranking_card.md` |
 | `{COUNTRY_NAME}` | 国名 (例: `Japan`) | `country_stats.md` |
 | `{COUNTRY_COUNT}` | 国別ダウンロード数 | `country_stats.md` |
+| `{TOOLS_COUNT}` | 登録されているツールの総数 (例: `8`) | `pages/tools.md` |
 
 ---
 

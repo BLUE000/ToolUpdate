@@ -290,5 +290,16 @@ class App
     public function handleApi(array $getParams): array
     public function handleDownload(array $getParams): void
     public function handleFeed(array $getParams): string
+    private function renderToolsList(array $tools): string
+    private function renderToolDetail(string $toolId): string
+    private function renderRecent(array $tools): string
+    private function renderReleases(array $tools): string
+    private function renderReadmePage(string $toolId, string $lang = 'ja'): string
 }
 ```
+
+#### メソッド詳細
+- `renderToolsList(array $tools): string`:
+  - 各ツールのカードHTMLを生成。
+  - 登録されているツールの総数（`count($tools)`）を集計。
+  - `pages/tools.md` へ `{TOOL_CARDS}`, `{TOOLS_COUNT}`, `{RANKING_LIST}`, `{COUNTRY_STATS}` を渡してレンダリング。タイトル・サブタイトルには一般利用者向けの分かりやすい見出し（「登録ツール一覧」および「現在 〇〇 件のツールが公開されています」）を反映。

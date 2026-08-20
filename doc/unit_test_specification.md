@@ -71,7 +71,7 @@
 | No | テスト項目 | 入力・事前条件 | 実行処理 | 期待結果 (検証内容) |
 | :-: | :--- | :--- | :--- | :--- |
 | UT-05-01 | 正常系: Markdown構文変換 | `# タイトル`, `**太字**`, `[リンク](url)` | `markdownToHtml($md)` | `<h1>`, `<strong>`, `<a href="...">` に正しく変換される |
-| UT-05-02 | 正常系: プレースホルダー置換 | テンプレート `{TOOL_NAME}`, パラメータ `TrustChain` | `renderComponent(...)` | プレースホルダーが `TrustChain` に置換される |
+| UT-05-02 | 正常系: プレースホルダー置換 | テンプレート `{TOOL_NAME}`, `{TOOLS_COUNT}`, パラメータ `TrustChain`, `8` | `renderComponent(...)` / `replacePlaceholders` | プレースホルダーが `TrustChain`, `8` に正しく置換される |
 | UT-05-03 | 正常系: XSSエスケープ検証 | パラメータ `<script>alert(1)</script>` | `renderComponent(...)` | `&lt;script&gt;` に無害化されて出力される |
 | UT-05-04 | 正常系: レイアウト結合 | `layout.md` と `pages/tools.md` | `render('pages/tools.md', ...)` | ヘッダー・フッターを含む完全なHTMLが生成される |
 | UT-05-05 | 正常系: リスト＆インデント変換 | `- **項目**`, `  - サブ`, `• バレット` | `markdownToHtml($md)` | ネストされたリストおよび太字がHTMLとして正しく変換される |
